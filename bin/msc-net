@@ -1,0 +1,46 @@
+#!/usr/bin/env python
+import argparse
+import json
+import os
+import sys
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(ROOT, "src"))
+
+from msc_core.network import resolve, tcp_check, udp_exchange
+
+parser = argparse.ArgumentParser(
+    description="MUSLIM VPN ENGINE — MSC Network Core"
+)
+sub = parser.add_subparsers(dest="action", required=True)
+
+p = sub.add_parser("dns", help="Résoudre un nom de domaine")
+p.add_argument("host")
+
+p = sub.add_parser("tcp", help="Tester une connexion TCP")
+p.add_argument("host")
+p.add_argument("port", type=int)
+p.add_argument("--timeout", type=float, default=5.0)
+
+p = sub.add_parser("udp", help="Envoyer un datagramme UDP de test")
+p.add_argument("host")
+p.add_argument("port", type=int)
+p.add_argument("--data", default="MSC-UDP-TEST")
+p.add_argument("--timeout", type=float, default=3.0)
+
+args = parser.parse_args()
+
+if args.action == "dns":
+    result = {"host": args.host, "addresses": resolve(args.host)}
+elif args.action == "tcp":
+    result = tcp_check(args.host, args.port, args.timeout)
+else:
+    result = udp_exchange(
+        args.host, args.port, args.data.encode(), args.timeout
+    )
+
+print(json.dumps(result, indent=2, ensure_ascii=False))
+if args.action == "tcp" and not result["ok"]:
+    sys.exit(1)
+if args.action == "udp" and not result["sent"]:
+    sys.exit(1)
